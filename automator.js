@@ -1,7 +1,7 @@
 import puppeteer from 'puppeteer';
 import path from 'path';
 import fs from 'fs';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 
 // Função para formatar a saudação dinâmica baseada no horário
 export function getGreeting() {
@@ -329,6 +329,48 @@ export class WhatsappAutomator {
     this.setStatus('ready');
   }
 
+  prepareVideoForPreview(sourcePath) {
+    const parsed = path.parse(sourcePath);
+    const targetPath = path.join(parsed.dir, parsed.name + '-whatsapp-preview.mp4');
+
+    try {
+      const sourceStat = fs.statSync(sourcePath);
+      if (fs.existsSync(targetPath)) {
+        const targetStat = fs.statSync(targetPath);
+        if (targetStat.mtimeMs >= sourceStat.mtimeMs && targetStat.size > 0) {
+          this.log('info', '🎞️ Usando vídeo convertido para preview: ' + path.basename(targetPath));
+          return targetPath;
+        }
+      }
+
+      this.log('info', '🎞️ Convertendo vídeo para formato compatível com preview do WhatsApp...');
+      execFileSync('ffmpeg', [
+        '-y',
+        '-i', sourcePath,
+        '-vf', "scale=1280:1280:force_original_aspect_ratio=decrease,format=yuv420p",
+        '-c:v', 'libx264',
+        '-profile:v', 'baseline',
+        '-level', '3.1',
+        '-preset', 'veryfast',
+        '-crf', '23',
+        '-movflags', '+faststart',
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        targetPath
+      ], { stdio: 'pipe' });
+
+      if (!fs.existsSync(targetPath) || fs.statSync(targetPath).size === 0) {
+        throw new Error('ffmpeg não gerou um arquivo válido.');
+      }
+
+      this.log('success', '🎞️ Vídeo preparado para preview: ' + path.basename(targetPath));
+      return targetPath;
+    } catch (error) {
+      this.log('warning', '⚠️ Não foi possível preparar vídeo para preview (' + error.message + '). Usando arquivo original.');
+      return sourcePath;
+    }
+  }
+
   // Processa um único contato da fila
   async sendSingleMessage(contact) {
     this.log('info', `➡️ Processando contato: ${contact.nome} (${contact.telefone})`);
@@ -544,11 +586,7 @@ export class WhatsappAutomator {
         footerEditable.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'deleteContentBackward' }));
       }).catch(() => {});
 
-      // 6. Faz o upload do vídeo usando o input de arquivo oculto no DOM de forma resiliente
-      this.log('info', '📁 Tentando carregar o vídeo como Documento...');
-      
       // Função auxiliar para localizar o campo de legenda dentro do editor de mídia/documento.
-      // A referência confiável no WhatsApp atual é o painel que contém "Enviar 1 item selecionado".
       const findCaptionInput = async (fileName) => {
         try {
           const handle = await this.page.evaluateHandle((name) => {
@@ -644,7 +682,9 @@ export class WhatsappAutomator {
         return null;
       };
 
-      const openDocumentPicker = async () => {
+      // 6. Faz o upload do vídeo pelo menu de anexos usando o FileChooser do Puppeteer.
+      // Isso evita deixar a janela nativa de diretórios aberta e permite priorizar preview.
+      const clickAttachmentOption = async (optionLabels) => {
         await this.page.evaluate(() => {
           const normalize = (value) => (value || '')
             .normalize('NFD')
@@ -669,61 +709,78 @@ export class WhatsappAutomator {
 
         await new Promise(resolve => setTimeout(resolve, 700));
 
-        await this.page.evaluate(() => {
+        const clicked = await this.page.evaluate((labels) => {
           const normalize = (value) => (value || '')
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '')
             .trim()
             .toLowerCase();
-
+          const normalizedLabels = labels.map(normalize);
           const candidates = Array.from(document.querySelectorAll('button, div[role="button"], li, span, div'));
-          const documentOption = candidates.find((el) => {
+          const option = candidates.find((el) => {
             const label = normalize(el.getAttribute('aria-label') || el.getAttribute('title') || '');
             const text = normalize(el.innerText || el.textContent || '');
-            return label === 'documento' || label === 'document' || text === 'documento' || text === 'document';
+            return normalizedLabels.includes(label) || normalizedLabels.includes(text);
           });
-          documentOption?.click();
-        });
+          if (!option) return false;
+          option.click();
+          return true;
+        }, optionLabels);
 
-        await new Promise(resolve => setTimeout(resolve, 700));
+        if (!clicked) {
+          throw new Error('Opção de anexo não encontrada: ' + optionLabels.join(' / '));
+        }
       };
 
-      await openDocumentPicker();
+      const uploadFromAttachmentMenu = async (optionLabels, filePathToUpload) => {
+        const chooserPromise = this.page.waitForFileChooser({ timeout: 8000 });
+        await clickAttachmentOption(optionLabels);
+        const fileChooser = await chooserPromise;
+        await fileChooser.accept([filePathToUpload]);
+      };
 
-      const docInput = await this.page.evaluateHandle(() => {
-        const inputs = Array.from(document.querySelectorAll('input[type="file"]'));
-        return inputs.find(input => {
-          const accept = input.getAttribute('accept') || '';
-          return input.hasAttribute('multiple') && (accept === '*' || accept === '' || (!accept.includes('image') && !accept.includes('video')));
-        }) || inputs.find(input => {
-          const accept = input.getAttribute('accept') || '';
-          return accept === '*' || (!accept.includes('image') && !accept.includes('video'));
-        }) || null;
-      });
+      const findCaptionInputUntil = async (fileName, timeoutMs) => {
+        const startTime = Date.now();
+        while (Date.now() - startTime < timeoutMs) {
+          const input = await findCaptionInput(fileName);
+          if (input) return input;
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        return null;
+      };
 
-      const fileInput = docInput.asElement();
-      if (!fileInput) {
-        throw new Error('Não foi possível localizar o seletor de upload de Documento no WhatsApp.');
-      }
-
-      await fileInput.uploadFile(this.videoPath);
-      this.log('info', '⏳ Processando upload do documento...');
-
-      const fileNameAnchor = path.basename(this.videoPath);
+      const previewVideoPath = this.prepareVideoForPreview(this.videoPath);
+      let uploadedVideoPath = previewVideoPath;
       let captionInput = null;
-      const docStartTime = Date.now();
-      while (Date.now() - docStartTime < 20000) {
-        captionInput = await findCaptionInput(fileNameAnchor);
-        if (captionInput) break;
-        await new Promise(resolve => setTimeout(resolve, 1000));
+
+      this.log('info', '📁 Tentando carregar o vídeo como Fotos e vídeos para manter preview...');
+      try {
+        await uploadFromAttachmentMenu(['Fotos e vídeos', 'Photos & videos', 'Photos and videos'], previewVideoPath);
+        this.log('info', '⏳ Processando upload com preview...');
+        captionInput = await findCaptionInputUntil(path.basename(previewVideoPath), 20000);
+        if (captionInput) {
+          this.log('success', '📁 Vídeo carregado com preview em modo Fotos e vídeos!');
+        }
+      } catch (error) {
+        this.log('warning', '⚠️ Falha ao abrir upload com preview: ' + error.message);
       }
 
       if (!captionInput) {
-        throw new Error('Tempo limite esgotado ao aguardar o editor de documento do WhatsApp Web.');
+        this.log('warning', '⚠️ Preview não ficou disponível. Tentando envio alternativo como Documento...');
+        await this.page.keyboard.press('Escape').catch(() => {});
+        await new Promise(resolve => setTimeout(resolve, 700));
+
+        uploadedVideoPath = this.videoPath;
+        await uploadFromAttachmentMenu(['Documento', 'Document'], uploadedVideoPath);
+        this.log('info', '⏳ Processando upload do documento...');
+        captionInput = await findCaptionInputUntil(path.basename(uploadedVideoPath), 20000);
+
+        if (!captionInput) {
+          throw new Error('Tempo limite esgotado ao aguardar o editor de mídia/documento do WhatsApp Web.');
+        }
+
+        this.log('success', '📁 Vídeo carregado com sucesso em modo Documento!');
       }
-
-      this.log('success', '📁 Vídeo carregado com sucesso em modo Documento!');
-
 
       const captionDebug = await this.page.evaluate((captionEl) => {
         const rect = captionEl?.getBoundingClientRect?.();
