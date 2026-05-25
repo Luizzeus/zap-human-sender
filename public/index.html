@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zap Human Sender - Automação WhatsApp Web Premium</title>
+  <!-- Google Fonts: Inter e Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+
+  <!-- Container de Fundo de Vidro -->
+  <div class="glass-bg-glow"></div>
+  
+  <div class="app-container">
+    <!-- Header Principal -->
+    <header class="app-header">
+      <div class="header-main-info">
+        <h1>Zap Human Sender</h1>
+        <p class="subtitle">Automação Humanizada & Personalizada de WhatsApp</p>
+      </div>
+      
+      <!-- Conexão e Status Geral -->
+      <div class="header-status-panel">
+        <div class="status-badge" id="bot-status-badge">
+          <span class="status-indicator-dot idle" id="status-dot"></span>
+          <span id="status-text">Desconectado</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Painel de Estatísticas Rápidas -->
+    <section class="stats-grid">
+      <div class="stat-card" id="stat-total">
+        <div class="stat-icon">👥</div>
+        <div class="stat-info">
+          <span class="stat-label">Total Fila</span>
+          <span class="stat-value" id="val-total">0</span>
+        </div>
+      </div>
+      <div class="stat-card" id="stat-sent">
+        <div class="stat-icon success">✅</div>
+        <div class="stat-info">
+          <span class="stat-label">Enviados</span>
+          <span class="stat-value text-success" id="val-enviados">0</span>
+        </div>
+      </div>
+      <div class="stat-card" id="stat-failed">
+        <div class="stat-icon error">❌</div>
+        <div class="stat-info">
+          <span class="stat-label">Falhas</span>
+          <span class="stat-value text-danger" id="val-falhas">0</span>
+        </div>
+      </div>
+      <div class="stat-card" id="stat-pending">
+        <div class="stat-icon warning">⏳</div>
+        <div class="stat-info">
+          <span class="stat-label">Pendentes</span>
+          <span class="stat-value text-warning" id="val-pendentes">0</span>
+        </div>
+      </div>
+      <div class="stat-card progress-large-card">
+        <div class="progress-info-row">
+          <span class="stat-label">Progresso do Envio</span>
+          <span class="progress-percent" id="val-percent">0%</span>
+        </div>
+        <div class="progress-bar-container">
+          <div class="progress-bar-fill" id="progress-fill" style="width: 0%;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Layout Principal com Grid de Duas Colunas -->
+    <main class="dashboard-grid">
+      
+      <!-- Coluna da Esquerda: Configurações e Inputs -->
+      <section class="config-column">
+        
+        <!-- CARD 1: UPLOAD DE VÍDEO -->
+        <article class="dashboard-card media-card">
+          <div class="card-header">
+            <h2>1. Mídia do Cardápio</h2>
+            <p class="card-desc">Carregue o vídeo (.mp4) a ser enviado com a legenda.</p>
+          </div>
+          
+          <div class="upload-dropzone" id="dropzone">
+            <input type="file" id="video-input" accept="video/mp4" style="display: none;">
+            <div class="dropzone-content">
+              <div class="dropzone-icon">🎬</div>
+              <p class="dropzone-title">Arraste seu vídeo MP4 aqui</p>
+              <p class="dropzone-sub">ou clique para navegar no seu computador</p>
+            </div>
+            <!-- Preview do Vídeo Carregado -->
+            <div class="video-preview-container" id="preview-container" style="display: none;">
+              <video id="video-preview" controls></video>
+              <div class="video-meta">
+                <span class="video-name" id="preview-filename">cardapio.mp4</span>
+                <button type="button" class="btn-remove-video" id="btn-remove-video">Remover ✖</button>
+              </div>
+            </div>
+          </div>
+          <div class="upload-progress-container" id="upload-progress-bar" style="display: none;">
+            <div class="progress-bar-container mini">
+              <div class="progress-bar-fill animated" id="upload-fill" style="width: 0%;"></div>
+            </div>
+            <span class="progress-text" id="upload-status">Enviando vídeo ao servidor...</span>
+          </div>
+        </article>
+
+        <!-- CARD 2: LISTA DE CONTATOS -->
+        <article class="dashboard-card contacts-card">
+          <div class="card-header">
+            <h2>2. Fila de Contatos</h2>
+            <p class="card-desc">Cole seus contatos (Nome;Telefone com DDI + DDD) um por linha.</p>
+          </div>
+          
+          <div class="textarea-wrapper">
+            <textarea id="contacts-input" placeholder="Exemplo:&#10;Maria Silva;5511999998888&#10;João Souza;5511988887777"></textarea>
+          </div>
+          
+          <div class="card-actions-row">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-load-example">⚡ Carregar Exemplo</button>
+            <button type="button" class="btn btn-danger btn-sm" id="btn-clear-contacts">Limpar Tudo</button>
+          </div>
+        </article>
+
+        <!-- CARD 3: TEMPLATE DE MENSAGEM -->
+        <article class="dashboard-card template-card">
+          <div class="card-header">
+            <h2>3. Mensagem Personalizada</h2>
+            <p class="card-desc">Crie a legenda do seu vídeo. Variáveis dinâmicas ajudam na humanização.</p>
+          </div>
+          
+          <div class="textarea-wrapper">
+            <textarea id="message-template" placeholder="Digite sua mensagem aqui..."></textarea>
+          </div>
+
+          <div class="variable-helper">
+            <span class="helper-label">Variáveis úteis (clique para inserir):</span>
+            <div class="variable-badges">
+              <span class="badge" data-var="{saudacao}" title="Gera dinamicamente: Bom dia / Boa tarde / Boa noite">{saudacao}</span>
+              <span class="badge" data-var="{Nome}" title="Insere o primeiro nome do contato">{Nome}</span>
+            </div>
+          </div>
+
+          <div class="spintax-helper">
+            💡 <strong>Dica Spintax:</strong> Use chaves para variar palavras, ex: <code>{Olá|Oi|Como vai}</code>. O sistema escolherá um aleatório a cada envio!
+          </div>
+        </article>
+
+        <!-- CARD 4: CONFIGURAÇÕES HUMANIZADAS -->
+        <article class="dashboard-card settings-card">
+          <div class="card-header">
+            <h2>4. Configurações de Delays</h2>
+            <p class="card-desc">Intervalos randômicos e pausas evitam detecção de robôs.</p>
+          </div>
+          
+          <div class="settings-form-row">
+            <div class="form-group">
+              <label for="delay-min">Delay Mínimo (segundos)</label>
+              <input type="number" id="delay-min" min="5" max="300" value="10">
+            </div>
+            <div class="form-group">
+              <label for="delay-max">Delay Máximo (segundos)</label>
+              <input type="number" id="delay-max" min="10" max="600" value="45">
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <!-- Coluna da Direita: Controles, Logs e Progresso -->
+      <section class="monitor-column">
+        
+        <!-- CARD 5: PAINEL DE CONTROLE GLOBAL -->
+        <article class="dashboard-card control-card">
+          <div class="card-header">
+            <h2>Controles Globais</h2>
+            <p class="card-desc">Gerencie o ciclo de envio da automação.</p>
+          </div>
+          
+          <div class="controls-buttons-grid">
+            <button type="button" class="btn btn-secondary" id="btn-connect">
+              <span class="icon">🌐</span> Abrir WhatsApp
+            </button>
+            <button type="button" class="btn btn-primary" id="btn-start" disabled>
+              <span class="icon">▶</span> Iniciar Envio
+            </button>
+            <button type="button" class="btn btn-warning" id="btn-pause" disabled>
+              <span class="icon">⏸</span> Pausar
+            </button>
+            <button type="button" class="btn btn-danger" id="btn-stop" disabled>
+              <span class="icon">🛑</span> Interromper
+            </button>
+          </div>
+        </article>
+
+        <!-- CARD 6: CONSOLE DE LOGS REAL-TIME -->
+        <article class="dashboard-card log-card">
+          <div class="card-header flex-header">
+            <h2>Monitoramento em Tempo Real</h2>
+            <span class="live-indicator"><span class="blink-dot"></span> LIVE STREAM</span>
+          </div>
+          
+          <div class="terminal-console" id="console-logs">
+            <div class="log-line info"><span class="log-time">[10:19:45]</span> Painel inicializado. Aguardando configurações...</div>
+          </div>
+        </article>
+
+        <!-- CARD 7: LISTA DA FILA DE CONTATOS PROCESSADOS -->
+        <article class="dashboard-card queue-list-card">
+          <div class="card-header">
+            <h2>Status Detalhado da Fila</h2>
+            <p class="card-desc">Acompanhe o processamento de cada contato individualmente.</p>
+          </div>
+          
+          <div class="table-container">
+            <table class="premium-table">
+              <thead>
+                <tr>
+                  <th>Contato</th>
+                  <th>Telefone</th>
+                  <th>Saudação Esperada</th>
+                  <th>Status</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="queue-table-body">
+                <tr>
+                  <td colspan="5" class="text-center empty-row-message">Nenhum contato importado ainda. Cole sua lista na coluna ao lado.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+      
+    </main>
+
+    <!-- Rodapé -->
+    <footer class="app-footer">
+      <p>&copy; 2026 Zap Human Sender - Solução Premium de Automação para Negócios. Feito com ❤️ por Antigravity.</p>
+    </footer>
+  </div>
+
+  <!-- JavaScript Scripts -->
+  <script src="index.js"></script>
+</body>
+</html>
