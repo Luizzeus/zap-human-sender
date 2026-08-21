@@ -6,3 +6,6 @@ logs/
 .env
 *.log
 npm-debug.log*
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+.claude/.sync-repo-last-push
