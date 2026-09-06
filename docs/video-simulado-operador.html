@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vídeo Simulado — Operador · Zap Human Sender</title>
+<style>
+  :root{
+    --roxo:#8a2be2; --roxo2:#3b82f6; --bg:#0b0c12; --painel:#12141d;
+    --linha:rgba(255,255,255,.08); --txt:#f3f4f6; --mut:#9aa3b2;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  html,body{height:100%}
+  body{
+    background:radial-gradient(1200px 700px at 70% -10%, rgba(138,43,226,.18), transparent), var(--bg);
+    color:var(--txt); font-family:"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    display:flex; align-items:center; justify-content:center; padding:24px;
+  }
+  .wrap{width:min(1100px,100%)}
+  .titulo{display:flex; align-items:baseline; gap:12px; margin-bottom:12px; flex-wrap:wrap}
+  .titulo h1{font-size:19px; font-weight:700}
+  .titulo span{color:var(--mut); font-size:13px}
+
+  .player{
+    position:relative; background:var(--painel); border:1px solid var(--linha);
+    border-radius:16px; overflow:hidden; box-shadow:0 30px 80px -30px rgba(0,0,0,.8);
+  }
+  .stage{position:relative; width:100%; aspect-ratio:16/10; background:#07080c; overflow:hidden}
+  .frame{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    opacity:0; transition:opacity .5s ease}
+  .frame.on{opacity:1}
+  .kb{position:relative; display:flex; max-width:100%; max-height:100%; will-change:transform}
+  .kb img{max-width:100%; max-height:100%; display:block}
+  .frame.on .kb{animation:ken 6s ease-out forwards}
+  .frame.on.rev .kb{animation:kenRev 6s ease-out forwards}
+  @keyframes ken{from{transform:scale(1.005)}to{transform:scale(1.07) translate(-1.2%,-0.8%)}}
+  @keyframes kenRev{from{transform:scale(1.07) translate(-1.2%,-0.8%)}to{transform:scale(1.005)}}
+
+  .ring{position:absolute; border:3px solid #ffd23f; border-radius:12px;
+    box-shadow:0 0 0 3px rgba(255,210,63,.25), 0 0 30px rgba(255,210,63,.35);
+    animation:pulse 1.4s ease-in-out infinite; pointer-events:none}
+  @keyframes pulse{0%,100%{transform:scale(1); opacity:.9}50%{transform:scale(1.03); opacity:1}}
+
+  .legenda{
+    position:absolute; left:0; right:0; bottom:0; padding:28px 26px 22px;
+    background:linear-gradient(to top, rgba(7,8,12,.96) 30%, rgba(7,8,12,.55) 70%, transparent);
+  }
+  .chip{display:inline-block; background:var(--roxo); color:#fff; font-weight:700;
+    font-size:11px; letter-spacing:.06em; text-transform:uppercase; padding:5px 11px; border-radius:999px; margin-bottom:9px}
+  .legenda h2{font-size:19px; font-weight:700; margin-bottom:5px}
+  .legenda p{font-size:14.5px; color:#dfe3ea; line-height:1.5; max-width:80ch; min-height:2.6em}
+
+  .barra{position:absolute; top:0; left:0; height:4px; background:linear-gradient(90deg,var(--roxo),var(--roxo2)); width:0%}
+
+  .controles{display:flex; align-items:center; gap:10px; padding:12px 16px; border-top:1px solid var(--linha)}
+  .controles button{
+    background:rgba(255,255,255,.06); border:1px solid var(--linha); color:var(--txt);
+    width:38px; height:38px; border-radius:9px; font-size:15px; cursor:pointer; transition:.15s;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .controles button:hover{background:rgba(138,43,226,.25); border-color:var(--roxo)}
+  .controles .play{width:44px; height:44px; font-size:17px; background:var(--roxo); border-color:var(--roxo)}
+  .contador{margin-left:auto; color:var(--mut); font-size:13px; font-variant-numeric:tabular-nums}
+  .pontos{display:flex; gap:6px; padding:10px 16px 14px; flex-wrap:wrap}
+  .pontos i{width:26px; height:5px; border-radius:3px; background:rgba(255,255,255,.12); cursor:pointer; transition:.2s}
+  .pontos i.done{background:rgba(138,43,226,.55)}
+  .pontos i.cur{background:linear-gradient(90deg,var(--roxo),var(--roxo2))}
+  .rodape{margin-top:12px; color:var(--mut); font-size:12px; text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="titulo">
+    <h1>Vídeo Simulado — Orientação do Operador</h1>
+    <span>Zap Human Sender · reproduz sozinho · use os controles abaixo</span>
+  </div>
+
+  <div class="player">
+    <div class="barra" id="barra"></div>
+    <div class="stage" id="stage"></div>
+    <div class="controles">
+      <button id="bPrev" title="Cena anterior">⏮</button>
+      <button class="play" id="bPlay" title="Reproduzir / pausar">⏸</button>
+      <button id="bNext" title="Próxima cena">⏭</button>
+      <button id="bReset" title="Recomeçar">⟲</button>
+      <span class="contador" id="contador">1 / 11</span>
+    </div>
+    <div class="pontos" id="pontos"></div>
+  </div>
+
+  <div class="rodape">Simulação com dados de teste. As telas podem variar conforme a versão do sistema.</div>
+</div>
+
+<script>
+const CENAS = [
+  { img:"assets/01-painel-vazio.png", chip:"Visão geral", t:"Este é o painel",
+    n:"O Zap Human Sender roda no navegador. Vamos montar um envio do começo ao fim. Preencha os cartões da esquerda, de cima para baixo.", dur:7000, rev:true },
+
+  { img:"assets/05-card-envio-seguro.png", chip:"Passo 1 · Números", t:"Cadastre os números",
+    n:"No cartão “Envio Seguro”, campo “Números de WhatsApp”, escreva um nome por linha — um para cada chip que vai disparar.", dur:6500,
+    ring:{x:4,y:34,w:52,h:14} },
+
+  { img:"assets/06-controles.png", chip:"Passo 2 · Conectar", t:"Abra o WhatsApp",
+    n:"Clique em “Abrir WhatsApp”. Abre uma janela do Chrome por número. Em cada celular: Aparelhos conectados → Conectar aparelho → aponte para o QR Code.", dur:7500,
+    ring:{x:2.5,y:40,w:36,h:25} },
+
+  { img:"assets/02-card-midia.png", chip:"Passo 3 · Vídeo", t:"Carregue o vídeo",
+    n:"No cartão 1, arraste o arquivo .mp4 do cardápio para a área tracejada — ou clique nela para escolher no computador.", dur:6500,
+    ring:{x:3,y:31,w:94,h:63} },
+
+  { img:"assets/03-card-contatos.png", chip:"Passo 4 · Contatos", t:"Cole a lista",
+    n:"No cartão 2, cole os contatos: um por linha, no formato Nome;Telefone. O telefone com DDI + DDD (55 + DDD) e sem espaços.", dur:7000 },
+
+  { img:"assets/04-card-mensagem.png", chip:"Passo 5 · Mensagem", t:"Escreva a legenda",
+    n:"No cartão 3, monte a mensagem. {saudacao} vira Bom dia/tarde/noite; {Nome} é o contato; {Oi|Olá|E aí} sorteia uma opção a cada envio.", dur:7500 },
+
+  { img:"assets/05-card-envio-seguro.png", chip:"Passo 6 · Travas", t:"Revise o Envio Seguro",
+    n:"Confira teto diário por número, envios por lote, pausa entre lotes, janela de horário (ex.: 9 às 19h) e o modo aquecimento para chips novos.", dur:8000 },
+
+  { img:"assets/06-controles.png", chip:"Passo 7 · Iniciar", t:"Inicie o envio",
+    n:"Clique em “Iniciar Envio”. Só habilita com vídeo, contatos e mensagem prontos. O status no topo muda para “Enviando…”.", dur:6500,
+    ring:{x:39.5,y:40,w:28,h:25} },
+
+  { img:"assets/08-painel-numeros.png", chip:"Acompanhar · Números", t:"Painel de Números",
+    n:"Mostra quanto cada número já enviou hoje sobre o limite do dia, e o estado: Conectado, Offline, Em pausa de lote ou Teto atingido.", dur:7500 },
+
+  { img:"assets/09-tabela-status.png", chip:"Acompanhar · Fila", t:"Status contato a contato",
+    n:"Cada linha mostra o número que atendeu e o status. Em caso de falha, há 1 reenvio automático; persistindo, use o botão “Reenviar” da linha.", dur:7500 },
+
+  { img:"assets/11-painel-operando.png", chip:"Encerrar", t:"Ao terminar",
+    n:"Pause ou Interrompa a fila, feche as janelas do Chrome dos números e feche a janela preta do console — é ela que mantém o sistema ligado.", dur:8000, rev:true },
+];
+
+const stage = document.getElementById('stage');
+const barra = document.getElementById('barra');
+const contador = document.getElementById('contador');
+const pontos = document.getElementById('pontos');
+const bPlay = document.getElementById('bPlay');
+
+let i = 0, tocando = true, t0 = 0, raf = 0, restante = 0;
+
+// monta frames e pontos
+const frames = CENAS.map((c, idx) => {
+  const f = document.createElement('div');
+  f.className = 'frame' + (c.rev ? ' rev' : '');
+  const kb = document.createElement('div');
+  kb.className = 'kb';
+  const img = document.createElement('img');
+  img.src = c.img; img.alt = c.t;
+  kb.appendChild(img);
+  if (c.ring) {
+    const r = document.createElement('div');
+    r.className = 'ring';
+    r.style.left = c.ring.x + '%'; r.style.top = c.ring.y + '%';
+    r.style.width = c.ring.w + '%'; r.style.height = c.ring.h + '%';
+    kb.appendChild(r);
+  }
+  f.appendChild(kb);
+  const leg = document.createElement('div');
+  leg.className = 'legenda';
+  leg.innerHTML = '<span class="chip">' + c.chip + '</span><h2>' + c.t + '</h2><p>' + c.n + '</p>';
+  f.appendChild(leg);
+  stage.appendChild(f);
+
+  const dot = document.createElement('i');
+  dot.addEventListener('click', () => irPara(idx));
+  pontos.appendChild(dot);
+  return f;
+});
+
+function pintarPontos() {
+  [...pontos.children].forEach((d, idx) => {
+    d.className = idx < i ? 'done' : (idx === i ? 'cur' : '');
+  });
+}
+
+function mostrar() {
+  frames.forEach((f, idx) => f.classList.toggle('on', idx === i));
+  // reinicia a animação Ken Burns
+  const kb = frames[i].querySelector('.kb');
+  kb.style.animation = 'none'; void kb.offsetWidth; kb.style.animation = '';
+  contador.textContent = (i + 1) + ' / ' + CENAS.length;
+  pintarPontos();
+}
+
+function loop(ts) {
+  if (!tocando) return;
+  if (!t0) t0 = ts;
+  const dur = CENAS[i].dur;
+  const p = Math.min(1, (ts - t0) / dur);
+  barra.style.width = (p * 100) + '%';
+  if (p >= 1) {
+    t0 = 0;
+    if (i < CENAS.length - 1) { i++; mostrar(); }
+    else { tocando = false; bPlay.textContent = '⟲'; return; }
+  }
+  raf = requestAnimationFrame(loop);
+}
+
+function play() {
+  if (i === CENAS.length - 1 && !tocando && barra.style.width === '100%') { i = 0; mostrar(); }
+  tocando = true; bPlay.textContent = '⏸'; t0 = 0;
+  cancelAnimationFrame(raf); raf = requestAnimationFrame(loop);
+}
+function pause() { tocando = false; bPlay.textContent = '▶'; cancelAnimationFrame(raf); }
+function irPara(n) { i = Math.max(0, Math.min(CENAS.length - 1, n)); barra.style.width = '0%'; mostrar(); if (tocando) play(); }
+
+bPlay.addEventListener('click', () => tocando ? pause() : play());
+document.getElementById('bPrev').addEventListener('click', () => irPara(i - 1));
+document.getElementById('bNext').addEventListener('click', () => irPara(i + 1));
+document.getElementById('bReset').addEventListener('click', () => irPara(0));
+document.getElementById('stage').addEventListener('click', () => tocando ? pause() : play());
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') { e.preventDefault(); tocando ? pause() : play(); }
+  if (e.code === 'ArrowRight') irPara(i + 1);
+  if (e.code === 'ArrowLeft') irPara(i - 1);
+});
+
+mostrar();
+play();
+</script>
+</body>
+</html>

@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Manual do Operador — Zap Human Sender</title>
+<style>
+  :root{
+    --roxo:#7b2cbf; --roxo-claro:#9b47eb; --tinta:#1f2430; --cinza:#5b6472;
+    --linha:#e4e2ea; --fundo-suave:#f7f5fb; --ok:#0f9d58; --alerta:#c77700; --perigo:#c8341f;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-print-color-adjust:exact; print-color-adjust:exact}
+  body{
+    font-family:"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--tinta); font-size:10.6pt; line-height:1.5; margin:0;
+  }
+  @page{ size:A4; margin:16mm 15mm 18mm 15mm; }
+
+  h1,h2,h3{font-weight:700; line-height:1.2; color:var(--tinta)}
+  h2{font-size:15pt; margin:0 0 4mm; padding-bottom:2mm; border-bottom:2px solid var(--roxo)}
+  h3{font-size:11.5pt; margin:6mm 0 2mm; color:var(--roxo)}
+  p{margin:0 0 2.5mm}
+  ul,ol{margin:0 0 3mm; padding-left:6mm}
+  li{margin:0 0 1.5mm}
+  code{background:var(--fundo-suave); border:1px solid var(--linha); border-radius:3px; padding:0 3px; font-family:Consolas,"Courier New",monospace; font-size:9.4pt}
+  strong{color:#000}
+
+  .capa{
+    height:calc(297mm - 34mm); display:flex; flex-direction:column; justify-content:center;
+    text-align:left; page-break-after:always;
+  }
+  .capa .tag{display:inline-block; background:var(--roxo); color:#fff; font-weight:700; letter-spacing:.08em; font-size:9pt; padding:2mm 4mm; border-radius:4px; text-transform:uppercase}
+  .capa h1{font-size:30pt; margin:8mm 0 3mm}
+  .capa .sub{font-size:13pt; color:var(--cinza); margin-bottom:14mm}
+  .capa .meta{font-size:10pt; color:var(--cinza); border-top:1px solid var(--linha); padding-top:5mm}
+  .capa .meta b{color:var(--tinta)}
+
+  section{page-break-inside:auto}
+  .quebra{page-break-before:always}
+
+  .passo{display:flex; gap:4mm; margin:4mm 0}
+  .passo .n{
+    flex:0 0 8mm; height:8mm; border-radius:50%; background:var(--roxo); color:#fff;
+    font-weight:700; display:flex; align-items:center; justify-content:center; font-size:11pt;
+  }
+  .passo .corpo{flex:1}
+  .passo .corpo h3{margin-top:0}
+
+  figure{margin:3mm 0; page-break-inside:avoid}
+  figure img{width:100%; border:1px solid var(--linha); border-radius:6px; display:block}
+  figure.meia img{max-width:96mm}
+  figcaption{font-size:8.6pt; color:var(--cinza); margin-top:1.5mm; font-style:italic}
+
+  .box{border:1px solid var(--linha); border-left:4px solid var(--roxo); background:var(--fundo-suave); border-radius:4px; padding:3mm 4mm; margin:3mm 0; page-break-inside:avoid}
+  .box.dica{border-left-color:var(--ok)}
+  .box.atencao{border-left-color:var(--alerta)}
+  .box.perigo{border-left-color:var(--perigo)}
+  .box .rot{font-weight:700; font-size:8.6pt; text-transform:uppercase; letter-spacing:.06em; display:block; margin-bottom:1mm}
+  .box.dica .rot{color:var(--ok)} .box.atencao .rot{color:var(--alerta)} .box.perigo .rot{color:var(--perigo)}
+
+  table{width:100%; border-collapse:collapse; margin:3mm 0; font-size:9.4pt; page-break-inside:avoid}
+  th,td{border:1px solid var(--linha); padding:2mm 2.5mm; text-align:left; vertical-align:top}
+  th{background:var(--roxo); color:#fff; font-weight:600}
+  tr:nth-child(even) td{background:var(--fundo-suave)}
+
+  .sumario ol{list-style:none; padding:0}
+  .sumario li{border-bottom:1px dotted var(--linha); padding:2mm 0}
+  .rodape-nota{margin-top:8mm; font-size:8.4pt; color:var(--cinza); border-top:1px solid var(--linha); padding-top:3mm}
+</style>
+</head>
+<body>
+
+<!-- CAPA -->
+<div class="capa">
+  <div><span class="tag">Manual do Operador</span></div>
+  <h1>Zap Human Sender</h1>
+  <div class="sub">Guia passo a passo para envio humanizado em WhatsApp<br>com rodízio de números e travas anti-bloqueio</div>
+  <div class="meta">
+    <p><b>Versão do sistema:</b> 1.0 (pacote portátil para Windows)</p>
+    <p><b>Público:</b> operador responsável pelo disparo diário</p>
+    <p><b>Conteúdo:</b> preparação, passo a passo, simulação completa, acompanhamento, solução de problemas</p>
+  </div>
+</div>
+
+<!-- SUMÁRIO -->
+<section class="sumario">
+  <h2>Sumário</h2>
+  <ol>
+    <li>1. O que o sistema faz</li>
+    <li>2. Antes de começar (requisitos)</li>
+    <li>3. Abrir o programa</li>
+    <li>4. Passo a passo do envio</li>
+    <li>5. Acompanhar o envio em tempo real</li>
+    <li>6. Pausar, retomar, interromper e reenviar</li>
+    <li>7. Encerrar</li>
+    <li>8. Simulação completa (exemplo do início ao fim)</li>
+    <li>9. Boas práticas anti-bloqueio</li>
+    <li>10. Problemas comuns e soluções</li>
+  </ol>
+</section>
+
+<!-- 1 -->
+<section class="quebra">
+  <h2>1. O que o sistema faz</h2>
+  <p>O <strong>Zap Human Sender</strong> envia uma mensagem de texto com um vídeo (o cardápio) para uma lista de contatos no WhatsApp, imitando o comportamento de uma pessoa: digita devagar, varia as palavras, espera entre um envio e outro.</p>
+  <p>Para reduzir o risco de bloqueio, ele trabalha com <strong>vários números em rodízio</strong>: a lista é dividida entre os números cadastrados, cada um com um <strong>teto diário</strong>, <strong>aquecimento gradual</strong>, <strong>pausa entre lotes</strong> e <strong>janela de horário</strong>.</p>
+  <div class="box atencao">
+    <span class="rot">Importante</span>
+    O sistema usa o Google Chrome (ou o Microsoft Edge) já instalado no computador. Ele <strong>não</strong> vem com navegador embutido.
+  </div>
+</section>
+
+<!-- 2 -->
+<section>
+  <h2>2. Antes de começar (requisitos)</h2>
+  <table>
+    <tr><th style="width:38mm">Item</th><th>Detalhe</th></tr>
+    <tr><td>Computador</td><td>Windows 10 ou 11. Não precisa instalar nada além do navegador.</td></tr>
+    <tr><td>Navegador</td><td>Google Chrome instalado (o Microsoft Edge também funciona).</td></tr>
+    <tr><td>Números de WhatsApp</td><td>De 2 a 3 chips/celulares que ficarão dedicados ao disparo. Cada número precisa estar com o WhatsApp ativo no celular para ler o QR Code.</td></tr>
+    <tr><td>Vídeo</td><td>Um arquivo <code>.mp4</code> do cardápio (o mesmo para toda a campanha do dia).</td></tr>
+    <tr><td>Lista de contatos</td><td>Nome e telefone com DDI + DDD. Ex.: <code>Maria Silva;5511999998888</code></td></tr>
+    <tr><td>ffmpeg (opcional)</td><td>Um <code>ffmpeg.exe</code> na pasta do programa melhora a pré-visualização do vídeo e a variação de mídia. Sem ele o sistema funciona, só com esses recursos limitados.</td></tr>
+  </table>
+  <div class="box dica">
+    <span class="rot">Meta realista</span>
+    Com 2 a 3 números aquecidos, o volume seguro fica em torno de <strong>300 a 600 envios por dia</strong> no total. Passar disso com poucos números costuma levar a bloqueio.
+  </div>
+</section>
+
+<!-- 3 -->
+<section class="quebra">
+  <h2>3. Abrir o programa</h2>
+  <ol>
+    <li>Copie a pasta <code>ZapHumanSender</code> inteira para o computador.</li>
+    <li>Dê um <strong>duplo clique</strong> em <code>Zap Human Sender.exe</code>.</li>
+    <li>Abre uma <strong>janela preta</strong> (o console — deixe-a aberta, é ela que mantém o sistema no ar).</li>
+    <li>Em poucos segundos o <strong>painel</strong> abre sozinho no navegador, no endereço <code>http://localhost:3050</code>.</li>
+  </ol>
+  <figure>
+    <img src="assets/01-painel-vazio.png" alt="Painel inicial">
+    <figcaption>Painel recém-aberto, ainda sem configuração. O status no topo aparece como “Desconectado”.</figcaption>
+  </figure>
+  <div class="box atencao">
+    <span class="rot">Primeira execução</span>
+    O Windows ou o antivírus pode pedir uma confirmação (“Executar mesmo assim”). É esperado, por ser um programa novo no computador.
+  </div>
+</section>
+
+<!-- 4 -->
+<section class="quebra">
+  <h2>4. Passo a passo do envio</h2>
+  <p>Preencha os cartões da coluna esquerda de cima para baixo. Os botões de controle ficam na coluna direita.</p>
+
+  <div class="passo">
+    <div class="n">1</div>
+    <div class="corpo">
+      <h3>Cadastrar os números</h3>
+      <p>No cartão <strong>4. Envio Seguro (Anti-Bloqueio)</strong>, campo <strong>“Números de WhatsApp”</strong>, escreva <strong>um rótulo por linha</strong> — um nome para você identificar cada número:</p>
+      <p><code>Principal</code><br><code>Número B</code><br><code>Número C</code></p>
+      <p>Cada linha vira uma janela do Chrome separada, com login próprio.</p>
+    </div>
+  </div>
+
+  <div class="passo">
+    <div class="n">2</div>
+    <div class="corpo">
+      <h3>Conectar o WhatsApp</h3>
+      <p>Na coluna direita, clique em <strong>“Abrir WhatsApp”</strong>. Abrem tantas janelas do Chrome quantos forem os números. Em cada janela:</p>
+      <ol>
+        <li>No celular do número correspondente: <strong>WhatsApp → Configurações → Aparelhos conectados → Conectar aparelho</strong>.</li>
+        <li>Aponte a câmera para o <strong>QR Code</strong> da janela.</li>
+        <li>Espere aparecer a lista de conversas. Repita para cada janela/número.</li>
+      </ol>
+      <p>O login fica salvo — nas próximas vezes normalmente não precisa escanear de novo.</p>
+    </div>
+  </div>
+
+  <div class="passo">
+    <div class="n">3</div>
+    <div class="corpo">
+      <h3>Carregar o vídeo</h3>
+      <p>No cartão <strong>1. Mídia do Cardápio</strong>, arraste o arquivo <code>.mp4</code> para a área tracejada (ou clique nela para escolher no computador). O vídeo aparece em miniatura quando termina de subir.</p>
+      <figure class="meia"><img src="assets/02-card-midia.png" alt="Cartão de mídia"><figcaption>Cartão 1 — área para arrastar o vídeo.</figcaption></figure>
+    </div>
+  </div>
+
+  <div class="passo">
+    <div class="n">4</div>
+    <div class="corpo">
+      <h3>Colar os contatos</h3>
+      <p>No cartão <strong>2. Fila de Contatos</strong>, cole a lista, <strong>um contato por linha</strong>, no formato <code>Nome;Telefone</code>. O telefone com <strong>DDI + DDD</strong> (Brasil = 55) e sem espaços.</p>
+      <figure class="meia"><img src="assets/03-card-contatos.png" alt="Cartão de contatos"><figcaption>Cartão 2 — a lista colada já aparece contada nas estatísticas do topo.</figcaption></figure>
+      <div class="box dica"><span class="rot">Atalho</span>O botão <strong>“Carregar Exemplo”</strong> preenche contatos e mensagem de teste para você ver o formato.</div>
+    </div>
+  </div>
+
+  <div class="passo">
+    <div class="n">5</div>
+    <div class="corpo">
+      <h3>Escrever a mensagem</h3>
+      <p>No cartão <strong>3. Mensagem Personalizada</strong>, escreva a legenda do vídeo. Recursos de humanização:</p>
+      <ul>
+        <li><code>{saudacao}</code> → vira “Bom dia / Boa tarde / Boa noite” conforme a hora.</li>
+        <li><code>{Nome}</code> → primeiro nome do contato.</li>
+        <li><code>{Oi|Olá|E aí}</code> → o sistema sorteia uma das opções a cada envio (spintax).</li>
+      </ul>
+      <figure class="meia"><img src="assets/04-card-mensagem.png" alt="Cartão de mensagem"><figcaption>Cartão 3 — clique nas etiquetas de variável para inseri-las no texto.</figcaption></figure>
+    </div>
+  </div>
+
+  <div class="passo">
+    <div class="n">6</div>
+    <div class="corpo">
+      <h3>Ajustar o “Envio Seguro”</h3>
+      <p>Ainda no cartão <strong>4</strong>, revise as travas:</p>
+      <table>
+        <tr><th style="width:44mm">Campo</th><th>Para que serve</th><th style="width:26mm">Sugerido</th></tr>
+        <tr><td>Delay mín./máx. por número (s)</td><td>Espera aleatória antes do <em>mesmo</em> número enviar de novo.</td><td>60 a 150</td></tr>
+        <tr><td>Teto diário por número</td><td>Ao atingir, o número para por aquele dia.</td><td>120 a 150</td></tr>
+        <tr><td>Envios por lote</td><td>Quantos envios seguidos antes de uma pausa longa.</td><td>20 a 25</td></tr>
+        <tr><td>Pausa entre lotes (min)</td><td>Descanso do número ao fechar um lote.</td><td>15 a 25</td></tr>
+        <tr><td>Janela de horário (h)</td><td>Faixa de horas em que o envio acontece. Fora dela, a fila espera.</td><td>9 até 19</td></tr>
+        <tr><td>Modo aquecimento</td><td>Sobe o limite do número aos poucos, a cada dia de uso.</td><td>Ligado p/ chip novo</td></tr>
+        <tr><td>Limite no 1º dia / Incremento por dia</td><td>Ex.: 30 e 20 → dia&nbsp;1 = 30, dia&nbsp;2 = 50, dia&nbsp;3 = 70… até o teto.</td><td>30 e 20</td></tr>
+      </table>
+      <figure><img src="assets/05-card-envio-seguro.png" alt="Cartão Envio Seguro"><figcaption>Cartão 4 completo — números, delays, teto, lote, pausa, janela e aquecimento.</figcaption></figure>
+    </div>
+  </div>
+
+  <div class="passo">
+    <div class="n">7</div>
+    <div class="corpo">
+      <h3>Iniciar o envio</h3>
+      <p>Na coluna direita, clique em <strong>“Iniciar Envio”</strong> (só habilita com vídeo, contatos e mensagem preenchidos). O status muda para <strong>“Enviando…”</strong>.</p>
+      <figure class="meia"><img src="assets/06-controles.png" alt="Controles globais"><figcaption>Controles: Abrir WhatsApp • Iniciar Envio • Pausar • Interromper.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<!-- 5 -->
+<section class="quebra">
+  <h2>5. Acompanhar o envio em tempo real</h2>
+  <h3>Estatísticas (topo)</h3>
+  <figure><img src="assets/07-estatisticas.png" alt="Estatísticas"><figcaption>Total na fila, enviados, falhas, pendentes e a barra de progresso.</figcaption></figure>
+
+  <h3>Painel de Números</h3>
+  <p>Mostra, para cada número, quanto já enviou hoje sobre o limite do dia, e o estado: <strong>Conectado</strong>, <strong>Offline</strong>, <strong>Em pausa de lote</strong> ou <strong>Teto atingido</strong>.</p>
+  <figure><img src="assets/08-painel-numeros.png" alt="Painel de Números"><figcaption>Aqui: 0/30 em cada número (aquecimento no 1º dia), teto de 150, 0 dias de uso.</figcaption></figure>
+
+  <h3>Status Detalhado da Fila</h3>
+  <p>Uma linha por contato: qual número atendeu, e o status (<strong>Pendente</strong>, <strong>Processando</strong>, <strong>Sucesso</strong>, <strong>Falhou</strong>). Se falhar, o sistema já faz <strong>1 reenvio automático</strong> na hora; persistindo, a linha ganha o botão <strong>“Reenviar”</strong> para você tentar manualmente.</p>
+  <figure><img src="assets/09-tabela-status.png" alt="Tabela de status"><figcaption>Exemplo: dois sucessos, uma falha (com botão Reenviar) e um em processamento.</figcaption></figure>
+
+  <h3>Monitoramento (console)</h3>
+  <figure><img src="assets/10-console-logs.png" alt="Console de logs"><figcaption>Registro ao vivo de cada passo — útil para entender uma falha.</figcaption></figure>
+</section>
+
+<!-- 6 -->
+<section class="quebra">
+  <h2>6. Pausar, retomar, interromper e reenviar</h2>
+  <table>
+    <tr><th style="width:34mm">Ação</th><th>O que faz</th></tr>
+    <tr><td><strong>Pausar</strong></td><td>Para depois de terminar o contato atual. O botão vira “Retomar”.</td></tr>
+    <tr><td><strong>Retomar</strong></td><td>Continua de onde parou, mantendo os contadores do dia.</td></tr>
+    <tr><td><strong>Interromper</strong></td><td>Encerra a fila. Os contatos pendentes ficam sem enviar (pede confirmação).</td></tr>
+    <tr><td><strong>Reenviar</strong> (na linha)</td><td>Tenta de novo um contato que falhou. Aparece quando a fila não está enviando ativamente.</td></tr>
+  </table>
+  <div class="box dica"><span class="rot">Teto atingido</span>Se todos os números baterem o teto do dia, a fila para sozinha e avisa quantos contatos ficaram pendentes para o dia seguinte. É só iniciar de novo no outro dia — os contadores zeram por data.</div>
+</section>
+
+<!-- 7 -->
+<section>
+  <h2>7. Encerrar</h2>
+  <ol>
+    <li>Se estiver enviando, clique em <strong>Interromper</strong> (ou <strong>Pausar</strong> se for continuar depois).</li>
+    <li>Feche as janelas do Chrome dos números.</li>
+    <li>Feche a <strong>janela preta</strong> do console — isso desliga o sistema.</li>
+  </ol>
+</section>
+
+<!-- 8 -->
+<section class="quebra">
+  <h2>8. Simulação completa (exemplo do início ao fim)</h2>
+  <p><strong>Cenário:</strong> 3 números (“Principal”, “Número B”, “Número C”), todos novos, primeiro dia de uso. Lista de <strong>150 contatos</strong>. Vídeo do cardápio pronto.</p>
+
+  <h3>Configuração usada</h3>
+  <ul>
+    <li>Delay por número: <strong>60 a 150 s</strong></li>
+    <li>Teto diário: <strong>150</strong> · Envios por lote: <strong>20</strong> · Pausa entre lotes: <strong>18 min</strong></li>
+    <li>Janela de horário: <strong>9 às 19 h</strong></li>
+    <li>Aquecimento <strong>ligado</strong> — 1º dia: <strong>30</strong> · incremento: <strong>20</strong>/dia</li>
+  </ul>
+
+  <h3>O que acontece</h3>
+  <ol>
+    <li>Operador cadastra os 3 nomes, clica em <strong>Abrir WhatsApp</strong> e escaneia os 3 QR Codes.</li>
+    <li>Carrega o vídeo, cola os 150 contatos, escreve a mensagem com <code>{saudacao}, {Nome}</code>.</li>
+    <li>Clica em <strong>Iniciar Envio</strong> às 9h30.</li>
+    <li>O sistema envia em rodízio: 1 contato pelo “Principal”, o próximo pelo “Número B”, o próximo pelo “Número C”, e recomeça.</li>
+    <li>Cada número respeita seus 60–150 s antes da próxima vez dele; entre números diferentes há um intervalo curto de 8–20 s.</li>
+    <li>Como é o <strong>1º dia</strong>, o limite de cada número é <strong>30</strong>. Quando os três chegam a 30 (total <strong>90 enviados</strong>), a fila para e avisa: <em>“Teto diário atingido… 60 contato(s) pendentes para o próximo dia.”</em></li>
+    <li>No <strong>2º dia</strong> o limite sobe para <strong>50</strong> por número; o operador abre o programa, clica em <strong>Iniciar Envio</strong> e os 60 restantes (e mais novos) seguem.</li>
+  </ol>
+
+  <div class="box"><span class="rot">Leitura do painel durante a simulação</span>
+    Painel de Números mostrando <code>17/30 hoje</code> no “Principal” e <code>Em pausa de lote</code> no “Número B” significa: o Principal já fez 17 dos 30 permitidos hoje; o Número B fechou um lote de 20 e está descansando os ~18 min antes de voltar ao rodízio.</div>
+
+  <figure><img src="assets/11-painel-operando.png" alt="Painel operando"><figcaption>Painel durante um envio simulado: fila de 5, rodízio entre 3 números, tabela com status variados.</figcaption></figure>
+
+  <p style="font-size:9pt;color:var(--cinza)">Observação: nas telas deste manual o status aparece como “Desconectado” porque foram capturadas sem os celulares conectados. Em uso real, após escanear os QR Codes, o topo mostra “WhatsApp Pronto” / “Enviando…”.</p>
+</section>
+
+<!-- 9 -->
+<section class="quebra">
+  <h2>9. Boas práticas anti-bloqueio</h2>
+  <ul>
+    <li><strong>Aqueça os números novos.</strong> Não desligue o modo aquecimento nos primeiros dias.</li>
+    <li><strong>Respeite o teto.</strong> Não fique aumentando o teto para “adiantar” — é o caminho mais rápido para o bloqueio.</li>
+    <li><strong>Varie a mensagem.</strong> Use <code>{op1|op2|op3}</code> em várias palavras, não só na saudação.</li>
+    <li><strong>Horário comercial.</strong> Mantenha a janela de 9–19 h. Evite madrugada e fins de semana.</li>
+    <li><strong>Um vídeo por campanha.</strong> Trocar o vídeo toda hora ou mandar vários seguidos chama atenção.</li>
+    <li><strong>Mais volume = mais números.</strong> Para passar de ~600/dia com segurança, adicione chips, não afrouxe as travas.</li>
+    <li><strong>Se um número for bloqueado</strong>, tire-o da lista de números e siga só com os saudáveis; contadores são por número.</li>
+  </ul>
+</section>
+
+<!-- 10 -->
+<section class="quebra">
+  <h2>10. Problemas comuns e soluções</h2>
+  <table>
+    <tr><th style="width:52mm">Sintoma</th><th>O que fazer</th></tr>
+    <tr><td>Ao abrir, aparece só a janela preta e nada mais</td><td>Espere 10–15 s (primeira abertura é mais lenta). Se não abrir, digite <code>http://localhost:3050</code> no navegador manualmente.</td></tr>
+    <tr><td>Log diz “Chrome/Edge não localizado”</td><td>Instale o Google Chrome. Se estiver em local diferente, crie a variável de ambiente <code>CHROME_PATH</code> apontando para o <code>chrome.exe</code>.</td></tr>
+    <tr><td>A janela do Chrome não mostra o QR Code</td><td>Feche a janela e clique em <strong>Abrir WhatsApp</strong> de novo. Confirme que o celular está com internet.</td></tr>
+    <tr><td>Contato dá “Número inválido / Não possui WhatsApp”</td><td>Confira DDI + DDD (55 + DDD). O sistema já tenta o formato antigo sem o 9 automaticamente.</td></tr>
+    <tr><td>“Teto diário atingido em todos os números”</td><td>Normal. O restante vai no dia seguinte — é só iniciar de novo.</td></tr>
+    <tr><td>Preview do vídeo ruim / mídia não varia</td><td>Coloque um <code>ffmpeg.exe</code> na pasta do programa (opcional).</td></tr>
+    <tr><td>“Porta 3050 em uso”</td><td>Já há uma cópia aberta. Feche a janela preta anterior antes de abrir de novo.</td></tr>
+    <tr><td>Botão “Reenviar” não aparece</td><td>Ele só aparece com a fila parada/pausada/pronta. Pause o envio para reenviar manualmente.</td></tr>
+  </table>
+
+  <div class="rodape-nota">
+    Zap Human Sender — Manual do Operador. Uso interno. As telas são ilustrativas e podem variar conforme a versão.
+  </div>
+</section>
+
+</body>
+</html>

@@ -4,6 +4,8 @@ Sistema profissional de automação e disparo em lote para WhatsApp Web com comp
 
 O projeto é construído em Node.js com automação de navegador via Puppeteer, simulando ações humanas (como "digitando..." ou "gravando...") e aplicando intervalos dinâmicos (delays) entre disparos para reduzir drasticamente o risco de banimentos.
 
+> **Para o operador:** guia passo a passo em [`docs/Manual-Operador-Zap-Human-Sender.pdf`](docs/Manual-Operador-Zap-Human-Sender.pdf) e um vídeo simulado de orientação em [`docs/video-simulado-operador.html`](docs/video-simulado-operador.html) (ou o `.gif` na mesma pasta).
+
 ---
 
 ## 🚀 Principais Funcionalidades
