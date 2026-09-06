@@ -4,6 +4,7 @@ whatsapp-session-*/
 fleet-state.json
 uploads/
 logs/
+dist/
 
 .env
 *.log

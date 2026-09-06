@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "build:win": "node scripts/build-win.mjs"
   },
   "keywords": [
     "whatsapp",

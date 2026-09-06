@@ -4,6 +4,52 @@ import fs from 'fs';
 import { execFileSync } from 'child_process';
 import { randomUUID } from 'crypto';
 
+// Binário do ffmpeg: usa FFMPEG_PATH se definido (ex.: ffmpeg.exe ao lado do
+// executável no Windows), senão tenta o 'ffmpeg' do PATH do sistema.
+const FFMPEG_BIN = process.env.FFMPEG_PATH || 'ffmpeg';
+
+// Localiza um Chrome/Edge instalado no sistema, multiplataforma.
+// Prioridade: variável CHROME_PATH -> caminhos padrão do SO -> null
+// (null deixa o Puppeteer tentar o Chromium embutido, se existir).
+export function resolveBrowserExecutable() {
+  const override = process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH;
+  if (override && fs.existsSync(override)) return override;
+
+  const pf = process.env['PROGRAMFILES'] || 'C:\\Program Files';
+  const pfx86 = process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)';
+  const localApp = process.env['LOCALAPPDATA'] || '';
+
+  let candidates;
+  if (process.platform === 'win32') {
+    candidates = [
+      path.join(pf, 'Google\\Chrome\\Application\\chrome.exe'),
+      path.join(pfx86, 'Google\\Chrome\\Application\\chrome.exe'),
+      localApp && path.join(localApp, 'Google\\Chrome\\Application\\chrome.exe'),
+      path.join(pfx86, 'Microsoft\\Edge\\Application\\msedge.exe'),
+      path.join(pf, 'Microsoft\\Edge\\Application\\msedge.exe')
+    ];
+  } else if (process.platform === 'darwin') {
+    candidates = [
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      '/Applications/Chromium.app/Contents/MacOS/Chromium',
+      '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge'
+    ];
+  } else {
+    candidates = [
+      '/usr/bin/google-chrome',
+      '/usr/bin/google-chrome-stable',
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser',
+      '/snap/bin/chromium'
+    ];
+  }
+
+  for (const c of candidates) {
+    if (c && fs.existsSync(c)) return c;
+  }
+  return null;
+}
+
 // Função para formatar a saudação dinâmica baseada no horário
 export function getGreeting() {
   const hour = new Date().getHours();
@@ -80,6 +126,13 @@ export class WhatsappAutomator {
     this.log('info', '🚀 Iniciando navegador Chrome nativo...');
     this.setStatus('connecting');
 
+    const chromePath = resolveBrowserExecutable();
+    if (chromePath) {
+      this.log('info', `🧭 Usando navegador do sistema: ${chromePath}`);
+    } else {
+      this.log('warning', '⚠️ Chrome/Edge não localizado nos caminhos padrão. Instale o Google Chrome ou defina a variável CHROME_PATH.');
+    }
+
     try {
       // Cria pasta de sessão se não existir
       if (!fs.existsSync(this.sessionDir)) {
@@ -101,7 +154,7 @@ export class WhatsappAutomator {
 
       this.browser = await puppeteer.launch({
         headless: false, // Abre visível para permitir ler o QR Code
-        executablePath: '/usr/bin/google-chrome', // Usa o Chrome instalado no sistema
+        executablePath: chromePath || undefined, // Chrome/Edge do sistema (multiplataforma)
         userDataDir: this.sessionDir, // Salva os cookies e a sessão
         args: [
           '--no-sandbox',
@@ -117,9 +170,14 @@ export class WhatsappAutomator {
       const pages = await this.browser.pages();
       this.page = pages.length > 0 ? pages[0] : await this.browser.newPage();
       
-      // Define User-Agent comum para evitar bloqueios
+      // Define User-Agent comum para evitar bloqueios (coerente com o SO atual)
+      const uaPlatform = process.platform === 'win32'
+        ? 'Windows NT 10.0; Win64; x64'
+        : process.platform === 'darwin'
+        ? 'Macintosh; Intel Mac OS X 10_15_7'
+        : 'X11; Linux x86_64';
       await this.page.setUserAgent(
-        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        `Mozilla/5.0 (${uaPlatform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36`
       );
 
       this.log('info', '🌐 Carregando o WhatsApp Web...');
@@ -356,7 +414,7 @@ export class WhatsappAutomator {
       }
 
       this.log('info', '🎞️ Convertendo vídeo para formato compatível com preview do WhatsApp...');
-      execFileSync('ffmpeg', [
+      execFileSync(FFMPEG_BIN, [
         '-y',
         '-i', sourcePath,
         '-vf', "scale=1280:1280:force_original_aspect_ratio=decrease,format=yuv420p",
@@ -392,7 +450,7 @@ export class WhatsappAutomator {
     const targetPath = path.join(parsed.dir, `envio-${tag}.mp4`);
 
     try {
-      execFileSync('ffmpeg', [
+      execFileSync(FFMPEG_BIN, [
         '-y',
         '-i', basePath,
         '-map_metadata', '-1',

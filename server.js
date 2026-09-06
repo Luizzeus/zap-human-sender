@@ -17,7 +17,7 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
 
 const app = express();
-const PORT = 3050;
+const PORT = parseInt(process.env.PORT, 10) || 3050;
 
 app.use(cors());
 app.use(express.json());

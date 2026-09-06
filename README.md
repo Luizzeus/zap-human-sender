@@ -32,11 +32,10 @@ O projeto é construído em Node.js com automação de navegador via Puppeteer, 
 *   `server.js`: Backend Node.js em Express responsável pelas APIs REST, controle de upload, agendamentos, geração de logs e transmissão via Server-Sent Events (SSE).
 *   `automator.js`: O motor de automação construído com Puppeteer para controle e interação com a interface do WhatsApp Web (uma instância por número).
 *   `fleet.js`: Coordenador do rodízio de números — divisão da fila, teto diário, aquecimento, pausa entre lotes e janela de horário.
-*   `gerar-licenca.js`: Script utilitário em linha de comando para gerar licenças criptográficas válidas a partir de parâmetros (cliente, validade, plano).
 *   `public/`: Pasta contendo a interface web do painel administrativo (HTML, CSS, JS).
-*   `licencas/`: Diretório contendo modelos e registros das licenças comerciais emitidas.
-*   `iniciar-windows.bat`: Script em lotes para inicialização facilitada no Windows.
-*   `dist/`: Pasta destino de compilação dos binários finais.
+*   `scripts/build-win.mjs`: Monta o pacote portátil para Windows (`npm run build:win`).
+*   `scripts/launcher.js`: Fonte do `Zap Human Sender.exe` — sobe o servidor e abre o painel.
+*   `dist/`: Saída do build portátil (não versionado).
 
 ---
 
@@ -57,20 +56,27 @@ Acesse o painel administrativo pelo navegador em: **[http://localhost:3050](http
 
 ---
 
-## 📦 Compilando para Executável (.exe) no Windows
+## 📦 Pacote portátil para Windows (.exe)
 
-Para distribuir o software sem expor o código-fonte e sem exigir que o cliente final instale o Node.js, compile um binário executável:
+Para rodar em qualquer Windows sem instalar Node.js:
 
 ```bash
 npm run build:win
 ```
 
-O arquivo executável autônomo será gerado em:
+Isso gera a pasta **`dist/ZapHumanSender/`** (auto-contida, ~180 MB):
+
 ```text
-dist/zap-human-sender-win-x64.exe
+dist/ZapHumanSender/
+  Zap Human Sender.exe   <- duplo clique: sobe o servidor e abre o painel
+  runtime/node.exe        <- runtime Node embutido
+  app/                    <- código + node_modules de produção
+  LEIA-ME.txt
 ```
 
-*Nota: O executável utilizará o Google Chrome ou Microsoft Edge instalado no próprio sistema Windows do cliente, mantendo o tamanho do binário leve.*
+Copie a pasta `ZapHumanSender` inteira para o computador destino e dê duplo clique no `.exe`. O painel abre sozinho em `http://localhost:3050`.
+
+*Requisitos no destino: ter o Google Chrome ou o Microsoft Edge instalado — o sistema usa o navegador do próprio computador (`automator.js` procura em `%ProgramFiles%\Google\Chrome`, Edge, `%LOCALAPPDATA%` etc.; pode ser forçado pela variável `CHROME_PATH`). O `ffmpeg` é opcional: coloque um `ffmpeg.exe` na pasta para ter preview de vídeo e variação de mídia por envio.*
 
 ---
 
@@ -82,3 +88,4 @@ O diretório é configurado com `.gitignore` para omitir as pastas locais gerada
 *   `fleet-state.json`: Contadores de envio por número/dia (usados pelo teto diário e pelo aquecimento).
 *   `uploads/`: Mídias enviadas para o painel.
 *   `logs/`: Registro de histórico de envios em JSON.
+*   `dist/`: Saída do `npm run build:win` (pacote portátil, ~180 MB — não versionado).
