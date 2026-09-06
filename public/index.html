@@ -152,21 +152,71 @@
           </div>
         </article>
 
-        <!-- CARD 4: CONFIGURAÇÕES HUMANIZADAS -->
+        <!-- CARD 4: ENVIO SEGURO (ANTI-BLOQUEIO) -->
         <article class="dashboard-card settings-card">
           <div class="card-header">
-            <h2>4. Configurações de Delays</h2>
-            <p class="card-desc">Intervalos randômicos e pausas evitam detecção de robôs.</p>
+            <h2>4. Envio Seguro (Anti-Bloqueio)</h2>
+            <p class="card-desc">Rodízio de números, teto diário, aquecimento e pausas reduzem o risco de bloqueio.</p>
           </div>
-          
+
+          <div class="form-group">
+            <label for="sessions-input">Números de WhatsApp (um rótulo por linha)</label>
+            <textarea id="sessions-input" class="mini-textarea" placeholder="Principal&#10;Número B&#10;Número C">Principal</textarea>
+            <span class="field-hint">Cada linha abre uma janela do Chrome própria para escanear o QR Code. A lista de contatos é dividida em rodízio entre os números.</span>
+          </div>
+
           <div class="settings-form-row">
             <div class="form-group">
-              <label for="delay-min">Delay Mínimo (segundos)</label>
-              <input type="number" id="delay-min" min="5" max="300" value="10">
+              <label for="delay-min">Delay mín. por número (s)</label>
+              <input type="number" id="delay-min" min="15" max="900" value="60">
             </div>
             <div class="form-group">
-              <label for="delay-max">Delay Máximo (segundos)</label>
-              <input type="number" id="delay-max" min="10" max="600" value="45">
+              <label for="delay-max">Delay máx. por número (s)</label>
+              <input type="number" id="delay-max" min="20" max="1800" value="150">
+            </div>
+          </div>
+
+          <div class="settings-form-row">
+            <div class="form-group">
+              <label for="daily-limit">Teto diário por número</label>
+              <input type="number" id="daily-limit" min="1" max="2000" value="150">
+            </div>
+            <div class="form-group">
+              <label for="batch-size">Envios por lote</label>
+              <input type="number" id="batch-size" min="1" max="500" value="25">
+            </div>
+          </div>
+
+          <div class="settings-form-row">
+            <div class="form-group">
+              <label for="batch-pause">Pausa entre lotes (min)</label>
+              <input type="number" id="batch-pause" min="0" max="240" value="20">
+            </div>
+            <div class="form-group">
+              <label>Janela de horário (h)</label>
+              <div class="inline-range">
+                <input type="number" id="active-start" min="0" max="23" value="9">
+                <span>até</span>
+                <input type="number" id="active-end" min="0" max="24" value="19">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group toggle-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="warmup-enabled" checked>
+              Modo aquecimento (recomendado para números novos)
+            </label>
+          </div>
+
+          <div class="settings-form-row" id="warmup-fields">
+            <div class="form-group">
+              <label for="warmup-start">Limite no 1º dia</label>
+              <input type="number" id="warmup-start" min="1" max="500" value="30">
+            </div>
+            <div class="form-group">
+              <label for="warmup-step">Incremento por dia</label>
+              <input type="number" id="warmup-step" min="0" max="200" value="20">
             </div>
           </div>
         </article>
@@ -198,6 +248,17 @@
           </div>
         </article>
 
+        <!-- CARD 5.1: PAINEL DE NÚMEROS (RODÍZIO) -->
+        <article class="dashboard-card fleet-card">
+          <div class="card-header">
+            <h2>Painel de Números</h2>
+            <p class="card-desc">Envios de hoje e status de cada número do rodízio.</p>
+          </div>
+          <div id="fleet-panel" class="fleet-panel">
+            <p class="text-muted" style="font-size:0.8rem;">Aguardando configuração dos números...</p>
+          </div>
+        </article>
+
         <!-- CARD 6: CONSOLE DE LOGS REAL-TIME -->
         <article class="dashboard-card log-card">
           <div class="card-header flex-header">
@@ -223,7 +284,7 @@
                 <tr>
                   <th>Contato</th>
                   <th>Telefone</th>
-                  <th>Saudação Esperada</th>
+                  <th>Número</th>
                   <th>Status</th>
                   <th>Ações</th>
                 </tr>

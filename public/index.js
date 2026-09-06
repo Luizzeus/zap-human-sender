@@ -36,9 +36,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const messageTemplate = document.getElementById('message-template');
   const variableBadges = document.querySelectorAll('.variable-badges .badge');
 
-  // Card 4: Configurações
+  // Card 4: Envio Seguro
   const delayMinInput = document.getElementById('delay-min');
   const delayMaxInput = document.getElementById('delay-max');
+  const sessionsInput = document.getElementById('sessions-input');
+  const dailyLimitInput = document.getElementById('daily-limit');
+  const batchSizeInput = document.getElementById('batch-size');
+  const batchPauseInput = document.getElementById('batch-pause');
+  const activeStartInput = document.getElementById('active-start');
+  const activeEndInput = document.getElementById('active-end');
+  const warmupEnabledInput = document.getElementById('warmup-enabled');
+  const warmupStartInput = document.getElementById('warmup-start');
+  const warmupStepInput = document.getElementById('warmup-step');
+  const warmupFields = document.getElementById('warmup-fields');
+  const fleetPanel = document.getElementById('fleet-panel');
 
   // Controles
   const btnConnect = document.getElementById('btn-connect');
@@ -59,6 +70,65 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Inicialização ---
   connectSSE();
   validateFormState();
+  syncWarmupFieldsVisibility();
+
+  // Mostra/oculta os campos de aquecimento conforme o checkbox
+  warmupEnabledInput.addEventListener('change', syncWarmupFieldsVisibility);
+  function syncWarmupFieldsVisibility() {
+    warmupFields.style.display = warmupEnabledInput.checked ? '' : 'none';
+  }
+
+  // Coleta os rótulos de sessões (uma por linha, sem vazios)
+  function getSessionLabels() {
+    const labels = sessionsInput.value
+      .split('\n')
+      .map(l => l.trim())
+      .filter(Boolean);
+    return labels.length ? labels : ['Principal'];
+  }
+
+  // Monta o objeto de configurações de segurança para enviar ao servidor
+  function getSafetyConfig() {
+    return {
+      dailyLimit: parseInt(dailyLimitInput.value) || 150,
+      batchSize: parseInt(batchSizeInput.value) || 25,
+      batchPauseMin: parseInt(batchPauseInput.value),
+      activeStartHour: parseInt(activeStartInput.value),
+      activeEndHour: parseInt(activeEndInput.value),
+      warmupEnabled: warmupEnabledInput.checked,
+      warmupStart: parseInt(warmupStartInput.value) || 30,
+      warmupStep: parseInt(warmupStepInput.value)
+    };
+  }
+
+  // Renderiza o painel de números do rodízio
+  function renderFleetPanel(fleet) {
+    if (!Array.isArray(fleet) || fleet.length === 0) {
+      fleetPanel.innerHTML = '<p class="text-muted" style="font-size:0.8rem;">Aguardando configuração dos números...</p>';
+      return;
+    }
+    fleetPanel.innerHTML = fleet.map(n => {
+      const pct = n.limitToday > 0 ? Math.min(100, Math.round((n.sentToday / n.limitToday) * 100)) : 0;
+      const paused = n.pausedUntil && n.pausedUntil > Date.now();
+      let stateLabel = n.connected ? 'Conectado' : 'Offline';
+      let stateClass = n.connected ? 'ok' : 'off';
+      if (paused) { stateLabel = 'Em pausa de lote'; stateClass = 'pause'; }
+      if (n.sentToday >= n.limitToday) { stateLabel = 'Teto atingido'; stateClass = 'cap'; }
+      return `
+        <div class="fleet-item">
+          <div class="fleet-item-top">
+            <strong>${escapeHTML(n.label)}</strong>
+            <span class="fleet-state ${stateClass}">${stateLabel}</span>
+          </div>
+          <div class="fleet-bar"><div class="fleet-bar-fill" style="width:${pct}%;"></div></div>
+          <div class="fleet-item-meta">
+            <span>${n.sentToday}/${n.limitToday} hoje</span>
+            <span>teto ${n.dailyLimit} · ${n.daysActive}d de uso</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
 
   // ==========================================================================
   // 1. DRAG AND DROP & UPLOAD DE VÍDEO
@@ -259,28 +329,31 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const estimatedGreeting = getEstimatedGreeting();
     let rowsHTML = '';
 
     parsedContacts.forEach((c, index) => {
       const statusClass = c.status.toLowerCase();
       let statusBadge = `<span class="badge-status ${statusClass}">${c.status}</span>`;
-      
+
       if (c.status === 'Falhou' && c.error) {
-        statusBadge = `<span class="badge-status falhou" title="${c.error}">Falhou ℹ️</span>`;
+        statusBadge = `<span class="badge-status falhou" title="${escapeHTML(c.error)}">Falhou ℹ️</span>`;
       }
 
       // Habilita reenvio se falhou e o bot não está enviando ativamente
-      const canRetry = c.status === 'Falhou' && (botState === 'ready' || botState === 'idle' || botState === 'stopped');
-      const actionButton = canRetry 
-        ? `<button type="button" class="btn-action-table" onclick="retrySingleContact(${index})">Reenviar</button>` 
+      const canRetry = c.status === 'Falhou' && (botState === 'ready' || botState === 'idle' || botState === 'stopped' || botState === 'paused');
+      const actionButton = canRetry
+        ? `<button type="button" class="btn-action-table" onclick="retrySingleContact(${index})">Reenviar</button>`
+        : `<span class="text-muted" style="font-size:0.75rem;">—</span>`;
+
+      const sessaoCell = c.sessao
+        ? `<span class="badge-sessao">${escapeHTML(c.sessao)}</span>`
         : `<span class="text-muted" style="font-size:0.75rem;">—</span>`;
 
       rowsHTML += `
         <tr class="queue-row-${index}">
           <td><strong>${escapeHTML(c.nome)}</strong></td>
           <td><code>${escapeHTML(c.telefone)}</code></td>
-          <td><span class="text-muted">${estimatedGreeting}</span></td>
+          <td>${sessaoCell}</td>
           <td>${statusBadge}</td>
           <td>${actionButton}</td>
         </tr>
@@ -355,24 +428,28 @@ document.addEventListener('DOMContentLoaded', () => {
     // Se o bot está ativamente enviando/conectando, bloqueamos controles e edição
     const isBotActive = botState === 'sending' || botState === 'connecting';
 
+    const safetyInputs = [
+      delayMinInput, delayMaxInput, sessionsInput, dailyLimitInput, batchSizeInput,
+      batchPauseInput, activeStartInput, activeEndInput, warmupEnabledInput,
+      warmupStartInput, warmupStepInput
+    ];
+
     if (isBotActive) {
       btnConnect.disabled = true;
       btnStart.disabled = true;
       contactsInput.disabled = true;
       messageTemplate.disabled = true;
-      delayMinInput.disabled = true;
-      delayMaxInput.disabled = true;
       btnLoadExample.disabled = true;
       btnClearContacts.disabled = true;
+      safetyInputs.forEach(el => { if (el) el.disabled = true; });
     } else {
       // Habilita edição
       btnConnect.disabled = false;
       contactsInput.disabled = false;
       messageTemplate.disabled = false;
-      delayMinInput.disabled = false;
-      delayMaxInput.disabled = false;
       btnLoadExample.disabled = false;
       btnClearContacts.disabled = false;
+      safetyInputs.forEach(el => { if (el) el.disabled = false; });
 
       // Iniciar só habilita se tiver contatos, template e vídeo carregado
       btnStart.disabled = !(hasContacts && hasTemplate && isVideoUploaded);
@@ -410,6 +487,12 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
+      // Atualiza o painel de números do rodízio
+      if (log.type === 'fleet_stats') {
+        renderFleetPanel(log.fleet);
+        return;
+      }
+
       // Renderiza logs comuns no console
       appendLog(log.type, log.message, log.timestamp);
     };
@@ -425,7 +508,12 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateBotStatusBadge(status) {
     botState = status;
     validateFormState();
-    
+
+    // Re-renderiza a fila para refletir a disponibilidade do botão "Reenviar",
+    // que depende do estado atual do bot. Sem isso, ao terminar/parar a fila a
+    // tabela continua congelada no último render feito durante o envio.
+    renderQueueTable();
+
     // Limpa classes anteriores
     statusDot.className = 'status-indicator-dot';
     statusDot.classList.add(status);
@@ -479,7 +567,11 @@ document.addEventListener('DOMContentLoaded', () => {
   btnConnect.addEventListener('click', async () => {
     try {
       appendLog('info', 'Abrindo WhatsApp Web para autenticação...');
-      const connectRes = await fetch('/api/connect', { method: 'POST' });
+      const connectRes = await fetch('/api/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessions: getSessionLabels() })
+      });
       const connectData = await connectRes.json();
       if (!connectData.success) {
         throw new Error(connectData.error || 'Falha ao abrir WhatsApp Web.');
@@ -512,7 +604,9 @@ document.addEventListener('DOMContentLoaded', () => {
           contacts: contactsData,
           messageTemplate: messageTemplate.value,
           minDelay: minDelay,
-          maxDelay: maxDelay
+          maxDelay: maxDelay,
+          sessions: getSessionLabels(),
+          safety: getSafetyConfig()
         })
       });
 

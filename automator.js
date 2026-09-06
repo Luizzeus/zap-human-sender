@@ -2,6 +2,7 @@ import puppeteer from 'puppeteer';
 import path from 'path';
 import fs from 'fs';
 import { execFileSync } from 'child_process';
+import { randomUUID } from 'crypto';
 
 // Função para formatar a saudação dinâmica baseada no horário
 export function getGreeting() {
@@ -33,19 +34,29 @@ export class WhatsappAutomator {
     this.onLogCallback = options.onLog || (() => {});
     this.onStatusChangeCallback = options.onStatusChange || (() => {});
     this.onProgressCallback = options.onProgress || (() => {});
-    
+
+    // Identificação da sessão/número (usada no rodízio de vários números)
+    this.id = options.id || 'principal';
+    this.label = options.label || this.id;
+    this.windowIndex = options.windowIndex || 0;
+
+    // Quando true, gera uma variação única do vídeo a cada envio (hash diferente)
+    this.varyMedia = options.varyMedia || false;
+
     this.contacts = [];
     this.currentIndex = 0;
     this.videoPath = null;
     this.messageTemplate = '';
     this.minDelay = 10;
     this.maxDelay = 45;
-    
+
     this.isPaused = false;
     this.isStopped = false;
-    
-    // Pasta persistente para salvar login do WhatsApp
-    this.sessionDir = path.resolve('./whatsapp-session');
+
+    // Pasta persistente para salvar login do WhatsApp (uma por número)
+    this.sessionDir = options.sessionDir
+      ? path.resolve(options.sessionDir)
+      : path.resolve('./whatsapp-session');
   }
 
   log(type, message, extra = {}) {
@@ -96,6 +107,7 @@ export class WhatsappAutomator {
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--window-size=1200,900',
+          `--window-position=${60 + this.windowIndex * 80},${40 + this.windowIndex * 60}`,
           '--disable-gpu',
           '--disable-extensions'
         ],
@@ -298,8 +310,8 @@ export class WhatsappAutomator {
       contact.status = 'Processando';
       this.onProgressCallback({ contacts: this.contacts, currentIndex: this.currentIndex });
 
-      const success = await this.sendSingleMessage(contact);
-      
+      const success = await this.sendWithAutoRetry(contact);
+
       if (success) {
         contact.status = 'Sucesso';
         this.log('success', `✅ Envio concluído com sucesso para ${contact.nome}!`);
@@ -371,9 +383,66 @@ export class WhatsappAutomator {
     }
   }
 
+  // Gera uma cópia única do vídeo a cada envio: remux rápido (sem recodificar) que
+  // apenas troca os metadados, resultando em um arquivo com hash/assinatura diferente.
+  // Reduz o sinal de "mídia idêntica em massa" que o WhatsApp usa para detectar spam.
+  makeUniqueMediaVariant(basePath) {
+    const parsed = path.parse(basePath);
+    const tag = randomUUID();
+    const targetPath = path.join(parsed.dir, `envio-${tag}.mp4`);
+
+    try {
+      execFileSync('ffmpeg', [
+        '-y',
+        '-i', basePath,
+        '-map_metadata', '-1',
+        '-c', 'copy',
+        '-metadata', `comment=${tag}`,
+        '-metadata', `title=${tag.slice(0, 8)}`,
+        '-metadata', `creation_time=${new Date().toISOString()}`,
+        '-movflags', '+faststart',
+        targetPath
+      ], { stdio: 'pipe' });
+
+      if (!fs.existsSync(targetPath) || fs.statSync(targetPath).size === 0) {
+        throw new Error('ffmpeg não gerou a variação.');
+      }
+      return { path: targetPath, temp: true };
+    } catch (error) {
+      this.log('warning', '⚠️ Não foi possível gerar variação de mídia (' + error.message + '). Usando arquivo padrão.');
+      return { path: basePath, temp: false };
+    }
+  }
+
+  // Envia um contato com 1 reenvio automático imediato caso a primeira tentativa falhe.
+  // Se a falha persistir, retorna false e o chamador segue adiante com a lista.
+  async sendWithAutoRetry(contact) {
+    let success = await this.sendSingleMessage(contact);
+
+    if (!success && !this.isStopped && !this.isPaused) {
+      const retryPause = Math.floor(Math.random() * 5000) + 3000;
+      this.log('warning', `⚠️ Falha no envio para ${contact.nome}. Fazendo 1 reenvio automático em ${Math.round(retryPause / 1000)}s...`);
+      await new Promise(resolve => setTimeout(resolve, retryPause));
+
+      if (!this.isStopped && !this.isPaused) {
+        success = await this.sendSingleMessage(contact);
+        if (success) {
+          this.log('success', `✅ Reenvio automático bem-sucedido para ${contact.nome}!`);
+        } else {
+          this.log('error', `❌ Reenvio automático também falhou para ${contact.nome}. Seguindo adiante com a lista.`);
+        }
+      }
+    }
+
+    return success;
+  }
+
   // Processa um único contato da fila
   async sendSingleMessage(contact) {
     this.log('info', `➡️ Processando contato: ${contact.nome} (${contact.telefone})`);
+
+    // Arquivo temporário de variação de mídia (limpo no finally)
+    let mediaVariant = null;
 
     // Auto-cicatrização individual do contato antes do envio
     let browserHealthy = false;
@@ -749,7 +818,14 @@ export class WhatsappAutomator {
         return null;
       };
 
-      const previewVideoPath = this.prepareVideoForPreview(this.videoPath);
+      let previewVideoPath = this.prepareVideoForPreview(this.videoPath);
+
+      // Gera uma variação única do arquivo para este envio (hash diferente a cada disparo).
+      if (this.varyMedia) {
+        mediaVariant = this.makeUniqueMediaVariant(previewVideoPath);
+        previewVideoPath = mediaVariant.path;
+      }
+
       let uploadedVideoPath = previewVideoPath;
       let captionInput = null;
 
@@ -1031,6 +1107,13 @@ export class WhatsappAutomator {
       this.log('error', `❌ Falha ao enviar para ${contact.nome}: ${error.message}`);
       contact.error = error.message;
       return false;
+    } finally {
+      // Remove o arquivo temporário da variação de mídia deste envio
+      if (mediaVariant && mediaVariant.temp) {
+        try {
+          fs.rmSync(mediaVariant.path, { force: true });
+        } catch (e) {}
+      }
     }
   }
 

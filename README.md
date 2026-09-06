@@ -16,6 +16,13 @@ O projeto é construído em Node.js com automação de navegador via Puppeteer, 
 *   **Agendamento de Envios:** Permite agendar campanhas completas para serem executadas automaticamente em uma data e hora futura configurada.
 *   **Gestão de Licenciamento:** Sistema embutido de ativação por chaves criptográficas de licença (com suporte para planos Demo, Mensais, Trimestrais, Anuais e Perpétuos).
 *   **Reenvio Individual:** Opção de tentar novamente o envio de forma individual para contatos específicos que falharam durante a execução em lote.
+*   **Reenvio Automático:** Ao falhar um envio, o sistema faz automaticamente **uma** nova tentativa imediata antes de seguir para o próximo contato.
+*   **Rodízio de Números (Anti-Bloqueio):** Vários números de WhatsApp em rodízio, cada um com sua própria sessão/janela do Chrome. A lista é dividida entre eles com:
+    *   **Teto diário por número** e **aquecimento gradual** (limite que sobe a cada dia de uso), persistidos em `fleet-state.json`.
+    *   **Pausa entre lotes** (após N envios seguidos, o número descansa alguns minutos).
+    *   **Janela de horário** — envios só ocorrem no intervalo de horas configurado.
+    *   **Variação de mídia** — cada disparo usa uma cópia do vídeo com assinatura/hash diferente.
+    *   **Painel de Números** no monitor, com envios do dia e status de cada número.
 *   **Compilador de Executável (Windows):** Facilidade de compilar a aplicação inteira em um arquivo `.exe` executável autônomo de Windows (utilizando `pkg`).
 
 ---
@@ -23,7 +30,8 @@ O projeto é construído em Node.js com automação de navegador via Puppeteer, 
 ## 📁 Estrutura do Projeto
 
 *   `server.js`: Backend Node.js em Express responsável pelas APIs REST, controle de upload, agendamentos, geração de logs e transmissão via Server-Sent Events (SSE).
-*   `automator.js`: O motor de automação construído com Puppeteer para controle e interação com a interface do WhatsApp Web.
+*   `automator.js`: O motor de automação construído com Puppeteer para controle e interação com a interface do WhatsApp Web (uma instância por número).
+*   `fleet.js`: Coordenador do rodízio de números — divisão da fila, teto diário, aquecimento, pausa entre lotes e janela de horário.
 *   `gerar-licenca.js`: Script utilitário em linha de comando para gerar licenças criptográficas válidas a partir de parâmetros (cliente, validade, plano).
 *   `public/`: Pasta contendo a interface web do painel administrativo (HTML, CSS, JS).
 *   `licencas/`: Diretório contendo modelos e registros das licenças comerciais emitidas.
@@ -70,6 +78,7 @@ dist/zap-human-sender-win-x64.exe
 
 O diretório é configurado com `.gitignore` para omitir as pastas locais geradas dinamicamente:
 *   `node_modules/`: Dependências locais.
-*   `whatsapp-session/`: Sessão salva do WhatsApp Web (mantém o usuário conectado).
+*   `whatsapp-session/` e `whatsapp-session-*/`: Sessões salvas do WhatsApp Web, uma por número (mantêm o usuário conectado).
+*   `fleet-state.json`: Contadores de envio por número/dia (usados pelo teto diário e pelo aquecimento).
 *   `uploads/`: Mídias enviadas para o painel.
 *   `logs/`: Registro de histórico de envios em JSON.

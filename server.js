@@ -4,7 +4,7 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { WhatsappAutomator } from './automator.js';
+import { FleetCoordinator, DEFAULT_SAFETY } from './fleet.js';
 
 // Utilitários para trabalhar com ES Modules
 const __filename = fileURLToPath(import.meta.url);
@@ -51,8 +51,15 @@ const sseClients = new Set();
 // Histórico de logs da execução atual na memória
 let logHistory = [];
 
+// Último snapshot do painel de números (para novos clientes SSE)
+let lastFleetStats = [];
+
 // Envia uma mensagem de log para todos os clientes SSE conectados
 const broadcastLog = (logEntry) => {
+  if (logEntry && logEntry.type === 'fleet_stats') {
+    lastFleetStats = logEntry.fleet || [];
+  }
+
   logHistory.push(logEntry);
   // Limita a memória a 200 logs
   if (logHistory.length > 200) logHistory.shift();
@@ -60,7 +67,7 @@ const broadcastLog = (logEntry) => {
   // Escreve em arquivo físico diário
   const today = new Date().toISOString().split('T')[0];
   const logFilePath = path.join(logsDir, `envio_log_${today}.json`);
-  
+
   let logsFileContent = [];
   try {
     if (fs.existsSync(logFilePath)) {
@@ -69,7 +76,7 @@ const broadcastLog = (logEntry) => {
   } catch (e) {
     logsFileContent = [];
   }
-  
+
   logsFileContent.push(logEntry);
   fs.writeFileSync(logFilePath, JSON.stringify(logsFileContent, null, 2), 'utf-8');
 
@@ -78,28 +85,56 @@ const broadcastLog = (logEntry) => {
   sseClients.forEach(client => client.write(dataString));
 };
 
-// Inicializa a instância global da automação
-const automator = new WhatsappAutomator({
-  onLog: (logEntry) => {
-    broadcastLog(logEntry);
-  },
-  onStatusChange: (status) => {
-    broadcastLog({
-      timestamp: new Date().toLocaleTimeString(),
-      type: 'status_change',
-      message: `Status alterado para: ${status}`,
-      status: status
+// Converte um rótulo de sessão em um id seguro para pasta/arquivo
+function slugify(label) {
+  return String(label || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'sessao';
+}
+
+// Constrói o coordenador de números a partir de uma lista de rótulos
+function buildFleet(sessionLabels) {
+  const seen = new Set();
+  const sessions = (Array.isArray(sessionLabels) && sessionLabels.length ? sessionLabels : ['Principal'])
+    .map(raw => String(raw || '').trim())
+    .filter(Boolean)
+    .map(label => {
+      let id = slugify(label);
+      while (seen.has(id)) id += '-x';
+      seen.add(id);
+      return { id, label };
     });
-  },
-  onProgress: (progress) => {
-    broadcastLog({
-      timestamp: new Date().toLocaleTimeString(),
-      type: 'progress_update',
-      message: `Progresso: ${progress.currentIndex}/${progress.contacts.length}`,
-      progress: progress
-    });
-  }
-});
+  if (sessions.length === 0) sessions.push({ id: 'principal', label: 'Principal' });
+
+  const fleet = new FleetCoordinator({
+    sessions,
+    onLog: (logEntry) => broadcastLog(logEntry),
+    onStatusChange: (status) => {
+      broadcastLog({
+        timestamp: new Date().toLocaleTimeString(),
+        type: 'status_change',
+        message: `Status alterado para: ${status}`,
+        status: status
+      });
+    },
+    onProgress: (progress) => {
+      broadcastLog({
+        timestamp: new Date().toLocaleTimeString(),
+        type: 'progress_update',
+        message: `Progresso: ${progress.currentIndex}/${progress.contacts.length}`,
+        progress: progress
+      });
+    }
+  });
+  fleet._sessionKey = sessions.map(s => s.id).join('|');
+  return fleet;
+}
+
+// Instância global da automação (rodízio de números)
+let automator = buildFleet(['Principal']);
 
 // SSE Endpoint para logs em tempo real
 app.get('/api/logs', (req, res) => {
@@ -122,6 +157,14 @@ app.get('/api/logs', (req, res) => {
     type: 'status_change',
     message: `Status atual: ${automator.status}`,
     status: automator.status
+  })}\n\n`);
+
+  // Envia o último snapshot do painel de números
+  res.write(`data: ${JSON.stringify({
+    timestamp: new Date().toLocaleTimeString(),
+    type: 'fleet_stats',
+    message: 'Painel de números',
+    fleet: lastFleetStats.length ? lastFleetStats : automator.fleetSnapshot()
   })}\n\n`);
 
   if (automator.contacts.length > 0) {
@@ -169,8 +212,8 @@ app.post('/api/upload', (req, res) => {
 });
 
 // Rota para definir os dados da fila de contatos e configurações
-app.post('/api/contacts', (req, res) => {
-  const { contacts, messageTemplate, minDelay, maxDelay } = req.body;
+app.post('/api/contacts', async (req, res) => {
+  const { contacts, messageTemplate, minDelay, maxDelay, sessions, safety } = req.body;
 
   if (!contacts || !Array.isArray(contacts) || contacts.length === 0) {
     return res.status(400).json({ success: false, error: 'Lista de contatos inválida ou vazia.' });
@@ -180,24 +223,61 @@ app.post('/api/contacts', (req, res) => {
     return res.status(400).json({ success: false, error: 'Modelo de mensagem vazio.' });
   }
 
+  // Reconstrói o rodízio somente se o conjunto de números mudou
+  const desiredLabels = (Array.isArray(sessions) && sessions.length) ? sessions : ['Principal'];
+  const desiredKey = desiredLabels
+    .map(l => slugify(l))
+    .filter(Boolean)
+    .join('|');
+
+  if (desiredKey && desiredKey !== automator._sessionKey) {
+    if (automator.status === 'sending') {
+      return res.status(400).json({ success: false, error: 'Não é possível alterar os números durante um envio ativo.' });
+    }
+    broadcastLog({
+      timestamp: new Date().toLocaleTimeString(),
+      type: 'info',
+      message: `Reconfigurando números de WhatsApp: ${desiredLabels.join(', ')}`
+    });
+    try {
+      await automator.closeBrowser();
+    } catch (e) {}
+    automator = buildFleet(desiredLabels);
+  }
+
   const filePath = path.join(uploadsDir, 'cardapio.mp4');
-  
+
   // Carrega a fila no automator
-  automator.setupQueue(contacts, filePath, messageTemplate, minDelay, maxDelay);
+  automator.setupQueue(contacts, filePath, messageTemplate, minDelay, maxDelay, safety || {});
 
   broadcastLog({
     timestamp: new Date().toLocaleTimeString(),
     type: 'info',
-    message: `Fila configurada com ${contacts.length} contatos. Pronto para iniciar.`
+    message: `Fila configurada com ${contacts.length} contatos em ${automator.members.length} número(s). Pronto para iniciar.`
   });
 
-  res.json({ success: true, count: contacts.length });
+  res.json({ success: true, count: contacts.length, sessions: automator.members.map(m => m.label) });
 });
 
 // Rota para abrir/conectar o WhatsApp Web sem iniciar envios
 app.post('/api/connect', async (req, res) => {
   if (automator.status === 'sending') {
     return res.status(400).json({ success: false, error: 'Automação já está em andamento.' });
+  }
+
+  // Reconstrói o rodízio se os números informados mudaram
+  const desiredLabels = (Array.isArray(req.body?.sessions) && req.body.sessions.length) ? req.body.sessions : null;
+  if (desiredLabels) {
+    const desiredKey = desiredLabels.map(l => slugify(l)).filter(Boolean).join('|');
+    if (desiredKey && desiredKey !== automator._sessionKey) {
+      try { await automator.closeBrowser(); } catch (e) {}
+      automator = buildFleet(desiredLabels);
+      broadcastLog({
+        timestamp: new Date().toLocaleTimeString(),
+        type: 'info',
+        message: `Números configurados: ${desiredLabels.join(', ')}`
+      });
+    }
   }
 
   res.json({ success: true, message: 'Abrindo WhatsApp Web...' });
@@ -259,7 +339,7 @@ app.post('/api/resume', (req, res) => {
   }
   automator.resume();
   res.json({ success: true });
-  
+
   // Roda em background
   automator.processQueue().catch(error => {
     broadcastLog({
@@ -279,7 +359,7 @@ app.post('/api/stop', (req, res) => {
 // Rota para Reenviar um Contato Específico que Falhou
 app.post('/api/retry-single', async (req, res) => {
   const { index } = req.body;
-  
+
   if (index === undefined || index < 0 || index >= automator.contacts.length) {
     return res.status(400).json({ success: false, error: 'Índice de contato inválido.' });
   }
@@ -308,10 +388,10 @@ app.post('/api/retry-single', async (req, res) => {
       const initialized = await automator.initializeBrowser();
       if (!initialized) return;
     }
-    
+
     automator.setStatus('sending'); // temporariamente 'sending' para desabilitar botões
     const success = await automator.sendSingleMessage(contact);
-    
+
     if (success) {
       contact.status = 'Sucesso';
       broadcastLog({
@@ -322,7 +402,7 @@ app.post('/api/retry-single', async (req, res) => {
     } else {
       contact.status = 'Falhou';
     }
-    
+
     automator.setStatus('ready');
     broadcastLog({
       timestamp: new Date().toLocaleTimeString(),
@@ -343,6 +423,11 @@ app.post('/api/retry-single', async (req, res) => {
       message: `Erro no reenvio para ${contact.nome}: ${error.message}`
     });
   }
+});
+
+// Rota utilitária: valores padrão das configurações de segurança
+app.get('/api/safety-defaults', (req, res) => {
+  res.json({ success: true, defaults: DEFAULT_SAFETY });
 });
 
 // Inicia o servidor Express
